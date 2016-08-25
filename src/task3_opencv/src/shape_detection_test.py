@@ -67,34 +67,7 @@ COLORS_END = 255
 NUMBER_COLORS = 2000
 colors_contours = [(random.randint(COLORS_START, COLORS_END), random.randint(COLORS_START, COLORS_END),random.randint(COLORS_START, COLORS_END) ) for i in range(NUMBER_COLORS) ]
                 
-def draw_contours(mask, cv_image, area_threshold):
-        '''
-        Find contours(borders) for the shapes in the image
 
-        #NOTE if you get following error:
-		# contours, hierarchy = cv2.findContours(mask2,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-		# ValueError: need more than two values to unpack
-		# change following line to:
-		# contours, hierarchy = cv2.findContours(mask2,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-        '''
-
-        contours, hierarchy = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-
-        # Filter out the smaller ones,  can do genertor
-        #Discard contours with a small area as this may just be noise
-        contours_filtered = [x for x in contours if cv2.contourArea(x) > area_threshold]
-        
-
-	#Pass through each contour and check if it has required properties to classify into required object
-	for i,x in enumerate(contours_filtered):
-		
-		#The below 2 functions help you to approximate the contour to a nearest polygon
-		arclength = cv2.arcLength(x, True)
-		approxcontour = cv2.approxPolyDP(x, 0.02 * arclength, True)
-
-		# cv2.drawContours(cv_image,contours[x],0,(0,255,255),2)
-                # Draw different colors for the shapes
-		cv2.drawContours(cv_image,[approxcontour],0, colors_contours[i] ,2)
 
 def threshold_image(hsv, data):
         '''
@@ -141,6 +114,38 @@ def Longest_Length(approxcontour):
 	LongestSide = max(dist)
 	return LongestSide
 
+class ContourDetection:
+
+        def __init__(self):
+                pass
+                
+        def draw_contours(self, mask, cv_image, area_threshold):
+                '''
+                Find contours(borders) for the shapes in the image
+                
+                '''
+
+                contours, hierarchy = cv2.findContours(mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+                # Filter out the smaller ones,  can do genertor
+                #Discard contours with a small area as this may just be noise
+                contours_filtered = [x for x in contours if cv2.contourArea(x) > area_threshold]
+        
+
+	        #Pass through each contour and check if it has required properties to classify into required object
+	        for i,x in enumerate(contours_filtered):
+		
+		        #The below 2 functions help you to approximate the contour to a nearest polygon
+		        arclength = cv2.arcLength(x, True)
+		        approxcontour = cv2.approxPolyDP(x, 0.02 * arclength, True)
+
+		        # cv2.drawContours(cv_image,contours[x],0,(0,255,255),2)
+                        # Draw different colors for the shapes
+		        cv2.drawContours(cv_image,[approxcontour],0, colors_contours[i] ,2)
+
+                        # Simple generator
+                        yield x
+                        
 #This is the main class for object detection, it has some initializations about nodes
 #Call back functions etc
 class object_detection:
@@ -154,7 +159,50 @@ class object_detection:
 		self.bridge = CvBridge()
 		#Obejct to transform listener which will be used to transform the points from one coordinate system to other.
 
+                self.cd = ContourDetection()
 	#Callback function for subscribed image
+        def publish_coordinates(self, contour):
+
+                #Find the coordinates of the polygon with respect to he camera frame in pixels
+                rect_cordi = cv2.minAreaRect(contour)
+		obj_x = int(rect_cordi[0][0])
+		obj_y = int(rect_cordi[0][1])
+
+                # Temp distance
+                Distance = 10
+                #Calculate Cordinates wrt to Camera, convert to Map
+		#Coordinates and publish message for storing
+		#319.5, 239.5 = image centre
+		obj_cam_x = ((obj_x - 319.5)*Distance)/focal_leng
+		obj_cam_y = ((obj_y - 239.5)*Distance)/focal_leng
+
+		#convert the x,y in camera frame to a geometric stamped point
+		P = PointStamped()
+		P.header.stamp = rospy.Time.now() - rospy.Time(23)
+		#print ('time: ', data.header.stamp)
+		P.header.frame_id = 'camera_rgb_optical_frame'
+		P.point.x = obj_cam_x
+		P.point.y = obj_cam_y
+		P.point.z = Distance
+                
+		#Transform Point into map coordinates
+		# trans_pt = self.tl.transformPoint('/map', P)
+
+		#fill in the publisher object to publish
+		obj_info_pub = object_loc()
+		obj_info_pub.ID = 27 #ID need to be changed
+		# obj_info_pub.point.x = trans_pt.point.x
+		# obj_info_pub.point.y = trans_pt.point.y
+		# obj_info_pub.point.z = trans_pt.point.z
+
+                # Temp
+                obj_info_pub.point.x = P.point.x
+		obj_info_pub.point.y = P.point.y
+		obj_info_pub.point.z = P.point.z
+
+		#publish the message
+		self.object_location_pub.publish(obj_info_pub)
+        
 	def callback(self,data):
 		#The below two functions conver the compressed image to opencv Image
 
@@ -170,15 +218,17 @@ class object_detection:
                 masks = find_masks_rgb(hsv)
 
                 for color, mask in masks.iteritems():
-                        draw_contours(mask, cv_image, 600)
-
+                        figures = self.cd.draw_contours(mask, cv_image, 600)
+                        for c in  figures:
+                                self.publish_coordinates(c)
 
 
 		#Display the captured image
 		cv2.imshow("Image",cv_image)
 		#cv2.imshow("HSV", hsv)
 		cv2.waitKey(1)
-
+                
+        
 
 #Main function for the node
 def main(args):

@@ -16,7 +16,7 @@ import tf
 from std_msgs.msg import String
 from cv_bridge import CvBridge, CvBridgeError
 
-from shape_detection_test import draw_contours
+from shape_detection_test import ContourDetection
 
 def nothing(x):
     pass
@@ -64,8 +64,12 @@ def callback(data):
     imgthreshed_show = imgthreshed.copy()
     # imgthreshed_blurred = cv2.blur(imgthreshed,(3,3))
     # thres = imgthreshed_blurred.copy()
-    
-    draw_contours(imgthreshed, img, Area)
+
+    c = ContourDetection()
+    asd = c.draw_contours(imgthreshed, img, Area)
+    # Just execute
+    for a in  asd:
+        pass
     cv2.imshow("View", img)
     cv2.imshow("camera", imgthreshed_show)
     # cv2.imshow("Blurred", imgthreshed_blurred)

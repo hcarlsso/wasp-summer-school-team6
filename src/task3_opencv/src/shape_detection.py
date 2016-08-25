@@ -95,6 +95,8 @@ class object_detection:
 		# ValueError: need more than two values to unpack
 		# change following line to:
 		# contours, hierarchy = cv2.findContours(mask2,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+                # Command will modify mask
 		contours, hierarchy = cv2.findContours(mask2,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
 		#Pass through each contour and check if it has required properties to classify into required object

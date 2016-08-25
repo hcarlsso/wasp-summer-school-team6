@@ -1,0 +1,28 @@
+rgb_threshold = {
+        'blue'  : [
+                {
+                               'low' : np.array([99,70, 57]),
+                        'high' : np.array([162,255,242]),
+                },
+        ],
+        'green' : [
+                {
+                        'low' : np.array([64,76,70]),
+	                'high' : np.array([112,148,111]),
+                }
+        ],
+        'red' : [
+                {
+                        'low' : np.array([0, 60, 122]),
+                        'high' : np.array([92, 244,181]),
+                },
+                              # Hard to get calibration
+	         {
+                         'low' : np.array([140,36,90]),
+                         'high' : np.array([255,230,200]),
+                 }
+        ],
+}
+
+
+area: 60

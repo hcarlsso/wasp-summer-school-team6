@@ -72,7 +72,7 @@ class object_detection:
 		img_cpy = cv_image.copy()
 		#Color to HSV and Gray Scale conversion
 		hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-		gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+		#gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
 		#Red_Thresholds
 		lower_red1 = np.array([0, 100, 100])

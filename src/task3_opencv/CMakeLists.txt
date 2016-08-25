@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cmake_modules
   nodelet
+  wasp_custom_msgs
 )
 
 find_package(Eigen REQUIRED)
@@ -31,9 +32,9 @@ generate_messages(
 )
 
 catkin_package(
-  INCLUDE_DIRS 
+  INCLUDE_DIRS
   LIBRARIES apriltag_detector
-  CATKIN_DEPENDS image_transport roscpp sensor_msgs geometry_msgs tf cv_bridge message_runtime std_msgs nodelet apriltags
+  CATKIN_DEPENDS image_transport roscpp sensor_msgs geometry_msgs tf cv_bridge message_runtime std_msgs nodelet apriltags wasp_custom_msgs
   DEPENDS Eigen
 )
 

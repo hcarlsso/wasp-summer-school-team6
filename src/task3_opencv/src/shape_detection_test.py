@@ -22,12 +22,14 @@ from wasp_custom_msgs.msg import object_loc
 import tf
 from math import hypot
 
-from itertools import cycle
+from itertools import islice
 import random
+from pprint import pprint
 
 
 #Define Constants
 random.seed(0)
+font = cv2.FONT_HERSHEY_SIMPLEX
 
 #Focal Length of the Asus Prime sensor camera
 focal_leng = 570.34222
@@ -68,6 +70,23 @@ NUMBER_COLORS = 2000
 colors_contours = [(random.randint(COLORS_START, COLORS_END), random.randint(COLORS_START, COLORS_END),random.randint(COLORS_START, COLORS_END) ) for i in range(NUMBER_COLORS) ]
                 
 
+CIRCLE_CONTOUR_SHAPE = np.array([[[257, 220]],
+                                 [[283, 223]],
+                                 [[294, 238]],
+                                 [[294, 253]],
+                                 [[279, 270]],
+                                 [[258, 270]],
+                                 [[244, 256]],
+                                 [[242, 237]]])
+
+STAR_CONTOUR_SHAPE = np.array([[[450,  18]],
+                               [[448,  47]],
+                               [[416,  54]],
+                               [[446,  61]],
+                               [[457,  95]],
+                               [[460,  64]],
+                               [[491,  57]],
+                               [[461,  49]]])
 
 def threshold_image(hsv, data):
         '''
@@ -117,8 +136,96 @@ def Longest_Length(approxcontour):
 class ContourDetection:
 
         def __init__(self):
-                pass
+                self.i = 1
+        
+
+        def find_center_contour(self, contour):
+
+                rect_cordi = cv2.minAreaRect(contour)
+		obj_x = int(rect_cordi[0][0])
+		obj_y = int(rect_cordi[0][1])
+
+                return (obj_x, obj_y)
+
+        def find_double_figure(self, info1 , info2):
+
+                f1 = self.find_figure(info1)
+                f2 = self.find_figure(info2)
+
+                return f1 + '_' + f2
                 
+        def find_figure(self, contour):
+                '''
+                Send in the approx contour
+                '''
+                # Four sides
+                (size, temp, temp2) = contour.shape
+                if size == 4:
+                        return 'SQUARE'
+                elif size == 3:
+                        return 'TRIANGLE'
+                elif cv2.matchShapes(contour,CIRCLE_CONTOUR_SHAPE,1,0.0) < 0.1:
+                        return 'CIRCLE'
+                elif cv2.matchShapes(contour,STAR_CONTOUR_SHAPE,1,0.0) < 0.2:
+                        return 'STAR'
+                else:
+                        return 'N/A'
+
+        def find_doubles(self, figures_all):
+
+                single_shapes = []
+                double_shapes = []
+                doubles_index = []
+
+                for i in sorted(figures_all.keys()):
+                        # Dont iterate previous shapes
+                        # The last one 
+                        if i in doubles_index:
+                                continue
+                        
+                        for j in islice(sorted(figures_all.keys()), i+1, None):      
+                                                            
+                                res = cv2.pointPolygonTest(
+                                        figures_all[i]['approxcontour'],
+                                        figures_all[j]['center'],
+                                        False
+                                )
+                                if res == 1:
+                                        # j is in i
+                                        doubles_index.append(j)
+                                        double_shapes.append((i,j))
+                                        break
+                        else:
+                                single_shapes.append(i)
+
+
+                return (single_shapes, double_shapes)
+
+        def filter_shapes(self, contours_filtered):
+
+                figures_all = {}
+	        #Pass through each contour and check if it has required properties to classify into required object
+	        for i, x in enumerate(contours_filtered):
+
+                        
+		        #The below 2 functions help you to approximate the contour to a nearest polygon
+                        arclength = cv2.arcLength(x, True)
+                        approxcontour = cv2.approxPolyDP(x, 0.02 * arclength, True)
+
+                        # Find valid shape
+                        figure = self.find_figure(approxcontour)
+                        if figure == 'N/A':
+                                # Crap image
+                                continue
+		        info = {
+                                'arclength' : arclength,
+		                'approxcontour' : approxcontour,
+                                'center' : self.find_center_contour(x),
+                                'figure' : figure,
+                        }
+                        figures_all[i] = info
+
+                return figures_all
         def draw_contours(self, mask, cv_image, area_threshold):
                 '''
                 Find contours(borders) for the shapes in the image
@@ -130,21 +237,65 @@ class ContourDetection:
                 # Filter out the smaller ones,  can do genertor
                 #Discard contours with a small area as this may just be noise
                 contours_filtered = [x for x in contours if cv2.contourArea(x) > area_threshold]
-        
 
-	        #Pass through each contour and check if it has required properties to classify into required object
-	        for i,x in enumerate(contours_filtered):
-		
-		        #The below 2 functions help you to approximate the contour to a nearest polygon
-		        arclength = cv2.arcLength(x, True)
-		        approxcontour = cv2.approxPolyDP(x, 0.02 * arclength, True)
+                figures_all = self.filter_shapes(contours_filtered)
 
+                (single_shapes, double_shapes) = self.find_doubles(figures_all)
+
+                #Singles
+                for i in single_shapes:
 		        # cv2.drawContours(cv_image,contours[x],0,(0,255,255),2)
                         # Draw different colors for the shapes
-		        cv2.drawContours(cv_image,[approxcontour],0, colors_contours[i] ,2)
+		        cv2.drawContours(
+                                cv_image,
+                                [ figures_all[i]['approxcontour'] ],
+                                0,
+                                colors_contours[i] ,
+                                2
+                        )
+
+                        
+                        cv2.putText(
+                                cv_image,
+                                figures_all[i]['figure'],
+                                figures_all[i]['center'],
+                                font,
+                                0.8,
+                                colors_contours[i],
+                                2
+                        )
 
                         # Simple generator
-                        yield x
+                        yield contours_filtered[i]
+                        
+                for (i,j) in double_shapes:
+                        # First 
+                        cv2.drawContours(
+                                cv_image,
+                                [ figures_all[i]['approxcontour'] ],
+                                0,
+                                colors_contours[i] ,
+                                2
+                        )
+                        # Second
+                        cv2.drawContours(
+                                cv_image,
+                                [ figures_all[j]['approxcontour'] ],
+                                0,
+                                colors_contours[i] ,
+                                2
+                        )
+
+                        cv2.putText(
+                                cv_image,
+                                figures_all[i]['figure'] + '_' + figures_all[j]['figure'],
+                                figures_all[i]['center'],
+                                font,
+                                0.8,
+                                colors_contours[i],
+                                2
+                        )
+                        yield contours_filtered[i]
                         
 #This is the main class for object detection, it has some initializations about nodes
 #Call back functions etc

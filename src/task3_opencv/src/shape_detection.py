@@ -25,7 +25,38 @@ from math import hypot
 from itertools import islice
 import random
 from pprint import pprint
+import yaml
 
+
+config_global =  '''
+single_shapes:
+  - SHAPE: STAR
+    COLOR: RED
+    ID: 1
+  - SHAPE: TRIANGLE
+    COLOR: BLUE
+    ID: 2
+  - SHAPE: SQUARE
+    COLOR: GREEN
+    ID: 3
+  - SHAPE: SQUARE
+    COLOR: RED
+    ID: 4
+  - SHAPE: CIRCLE
+    COLOR: RED
+    ID: 5
+double_shapes:
+  - SHAPE:
+      - SQUARE
+      - CIRCLE
+    COLOR: RED
+    ID: 6
+  - SHAPE:
+      - SQUARE
+      - STAR
+    COLOR: BLUE
+    ID: 7
+'''
 
 #Define Constants
 random.seed(0)
@@ -38,19 +69,19 @@ focal_leng = 570.34222
 square_side_lenth = 0.115 #in mts
 
 rgb_threshold = {
-        'blue'  : [
+        'BLUE'  : [
                 {
                         'low' : np.array([99,70, 57]),
                         'high' : np.array([162,255,242]),
                 },
         ],
-        'green' : [
+        'GREEN' : [
                 {
                         'low' : np.array([55,67,25]),
 	                'high' : np.array([98,255,165]),
                 }
         ],
-        'red' : [
+        'RED' : [
                 {
                         'low' : np.array([0, 60, 122]),
                         'high' : np.array([92, 244,181]),
@@ -148,8 +179,14 @@ class ContourDetection:
 
         def __init__(self):
                 self.i = 1
-        
 
+                # with open('config_shapes.yaml', 'r') as f:
+                config = yaml.load(config_global)
+
+                pprint(config)
+                self.allowed_singles = config['single_shapes']
+                self.allowed_doubles = config['double_shapes']
+                        
         def find_center_contour(self, contour):
 
                 rect_cordi = cv2.minAreaRect(contour)
@@ -232,12 +269,61 @@ class ContourDetection:
                                 'arclength' : arclength,
 		                'approxcontour' : approxcontour,
                                 'center' : self.find_center_contour(x),
+                                # Should be renamed to shape
                                 'figure' : figure,
+                                'contour' : x,
                         }
                         figures_all[i] = info
 
                 return figures_all
-        def draw_contours(self, mask, cv_image, area_threshold):
+
+
+        def filter_allowed_figures_single(self, figures_all, single_shapes, color):
+
+                allowed = []
+                for i in single_shapes:
+
+                        info = figures_all[i]
+                        
+                        for info_allowed in self.allowed_singles:
+                                criteria = all([
+                                        info_allowed['SHAPE']  == info['figure'],
+                                        info_allowed['COLOR']  == color,
+                                        ])
+                                if criteria:
+                                        info['color'] = color
+                                        allowed.append(
+                                                (info_allowed['ID'], info)
+                                        )
+
+                return allowed
+
+        def filter_allowed_figures_double(self, figures_all, double_shapes, color):
+                
+                # Doubles
+                allowed = []
+                for (i,j) in double_shapes:
+
+                        info_i = figures_all[i]
+                        info_j = figures_all[j]
+
+                        for info_allowed in self.allowed_doubles:
+                                criteria = all([
+                                        info_i['figure'] in info_allowed['SHAPE'],
+                                        info_j['figure'] in info_allowed['SHAPE'],
+                                        info_allowed['COLOR']  == color,
+                                        ])
+                                if criteria:
+                                        info_i['color'] = color
+                                        info_j['color'] = color
+                                        allowed.append(
+                                                (info_allowed['ID'], info_i, info_j)
+                                        )
+                return allowed
+                
+                
+        def find_figures(self, mask, cv_image, area_threshold):
+
                 '''
                 Find contours(borders) for the shapes in the image
                 
@@ -253,13 +339,17 @@ class ContourDetection:
 
                 (single_shapes, double_shapes) = self.find_doubles(figures_all)
 
+                return figures_all, single_shapes, double_shapes
+                
+        def draw_single_figures(self, single_shapes, cv_image):
+
                 #Singles
-                for i in single_shapes:
+                for (i, info) in single_shapes:
 		        # cv2.drawContours(cv_image,contours[x],0,(0,255,255),2)
                         # Draw different colors for the shapes
 		        cv2.drawContours(
                                 cv_image,
-                                [ figures_all[i]['approxcontour'] ],
+                                [ info['approxcontour'] ],
                                 0,
                                 colors_contours[i] ,
                                 2
@@ -268,22 +358,22 @@ class ContourDetection:
                         
                         cv2.putText(
                                 cv_image,
-                                figures_all[i]['figure'],
-                                figures_all[i]['center'],
+                                info['figure'] + '_' + info['color'] + '_' + str(i),
+                                info['center'],
                                 font,
                                 0.8,
                                 colors_contours[i],
                                 2
                         )
 
-                        # Simple generator
-                        yield contours_filtered[i]
-                        
-                for (i,j) in double_shapes:
+
+        def draw_double_figures(self, double_shapes, cv_image):
+                                
+                for (i,info_1,info_2) in double_shapes:
                         # First 
                         cv2.drawContours(
                                 cv_image,
-                                [ figures_all[i]['approxcontour'] ],
+                                [ info_1['approxcontour'] ],
                                 0,
                                 colors_contours[i] ,
                                 2
@@ -291,7 +381,7 @@ class ContourDetection:
                         # Second
                         cv2.drawContours(
                                 cv_image,
-                                [ figures_all[j]['approxcontour'] ],
+                                [ info_2['approxcontour'] ],
                                 0,
                                 colors_contours[i] ,
                                 2
@@ -299,31 +389,28 @@ class ContourDetection:
 
                         cv2.putText(
                                 cv_image,
-                                figures_all[i]['figure'] + '_' + figures_all[j]['figure'],
-                                figures_all[i]['center'],
+                                info_1['figure'] + '_' + info_2['figure'] + '_' + info_1['color'] + '_' + str(i),
+                                info_1['center'],
                                 font,
                                 0.8,
                                 colors_contours[i],
                                 2
                         )
-                        yield contours_filtered[i]
                         
-#This is the main class for object detection, it has some initializations about nodes
-#Call back functions etc
-class object_detection:
-	def __init__(self):
-		#Create Rospy Publisher and subscriber
+class Publisher:
+
+        def __init__(self):
+
+                #Create Rospy Publisher and subscriber
 		self.object_location_pub = rospy.Publisher("/object_location", object_loc, queue_size =1)
-		#original images is huge and creates lot of latency, therefore subscribe to compressed image
+                
 
-		self.image_sub = rospy.Subscriber("/ardrone/image_raw",Image,self.callback)
-		#Cv Bridge is used to convert images from ROS messages to numpy array for openCV and vice versa
-		self.bridge = CvBridge()
-		#Obejct to transform listener which will be used to transform the points from one coordinate system to other.
+        def publish(self, info):
 
-                self.cd = ContourDetection()
-	#Callback function for subscribed image
-        def publish_coordinates(self, contour):
+                for f in info:
+                        self.publish_coordinates(f[1]['contour'], f[0])
+                
+        def publish_coordinates(self, contour, number):
 
                 #Find the coordinates of the polygon with respect to he camera frame in pixels
                 rect_cordi = cv2.minAreaRect(contour)
@@ -352,7 +439,7 @@ class object_detection:
 
 		#fill in the publisher object to publish
 		obj_info_pub = object_loc()
-		obj_info_pub.ID = 27 #ID need to be changed
+		obj_info_pub.ID = number #ID need to be changed
 		# obj_info_pub.point.x = trans_pt.point.x
 		# obj_info_pub.point.y = trans_pt.point.y
 		# obj_info_pub.point.z = trans_pt.point.z
@@ -364,7 +451,22 @@ class object_detection:
 
 		#publish the message
 		self.object_location_pub.publish(obj_info_pub)
-        
+
+#This is the main class for object detection, it has some initializations about nodes
+#Call back functions etc
+class object_detection:
+	def __init__(self):
+		
+		#original images is huge and creates lot of latency, therefore subscribe to compressed image
+		self.image_sub = rospy.Subscriber("/ardrone/image_raw",Image,self.callback)
+		#Cv Bridge is used to convert images from ROS messages to numpy array for openCV and vice versa
+		self.bridge = CvBridge()
+		#Obejct to transform listener which will be used to transform the points from one coordinate system to other.
+
+                self.cd = ContourDetection()
+
+                self.publisher = Publisher()
+	#Callback function for subscribed image        
 	def callback(self,data):
 		#The below two functions conver the compressed image to opencv Image
 
@@ -378,12 +480,20 @@ class object_detection:
 
 		
                 masks = find_masks_rgb(hsv)
-
+                figures_all = {}
                 for color, mask in masks.iteritems():
-                        figures = self.cd.draw_contours(mask, cv_image, 600)
-                        for c in  figures:
-                                self.publish_coordinates(c)
+                        figures, single_shapes, double_shapes = self.cd.find_figures(mask, cv_image, 600)
+                        singles = self.cd.filter_allowed_figures_single(figures, single_shapes, color)
+                        doubles = self.cd.filter_allowed_figures_double(figures, double_shapes, color)
+                        
+                        # plotting
+                        self.cd.draw_single_figures(singles, cv_image)
+                        self.cd.draw_double_figures(doubles, cv_image)
 
+
+                        # Send the coordinates of the figures found
+                        self.publisher.publish(singles)
+                        self.publisher.publish(doubles)
 
 		#Display the captured image
 		cv2.imshow("Image",cv_image)

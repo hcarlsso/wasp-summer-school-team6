@@ -46,8 +46,8 @@ rgb_threshold = {
         ],
         'green' : [
                 {
-                        'low' : np.array([64,76,70]),
-	                'high' : np.array([112,148,111]),
+                        'low' : np.array([55,67,25]),
+	                'high' : np.array([98,255,165]),
                 }
         ],
         'red' : [
@@ -57,8 +57,8 @@ rgb_threshold = {
                 },
                 # Hard to get calibration
                 {
-                        'low' : np.array([140,36,90]),
-                        'high' : np.array([255,230,200]),
+                        'low' : np.array([154,50,90]),
+                        'high' : np.array([255,255,255]),
                 }
         ],
 }

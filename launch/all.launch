@@ -1,0 +1,30 @@
+<launch>
+
+	<include file="/home/wasp/catkin_ws/src/tum_ardrone/launch/ardrone_driver.launch"/>
+	<include file="/home/wasp/catkin_ws/src/tum_ardrone/launch/tum_ardrone.launch"/>
+	
+	<!--
+  	<node pkg="rosbag"
+		type="play"
+		name="player"
+		output="screen"
+		args="-l /home/wasp/catkin_ws/src/wasp_rosbags/task3_openCv.bag"/>
+	-->
+	
+	<node pkg="task3_opencv"
+		name="shape_detection"
+		type="shape_detection.py"/>
+
+    <node pkg="task3_opencv"
+		name="april_tags"
+		type="april_tags"/>
+
+	<!--
+	<group ns="listener">
+    	<node pkg="task3_opencv"
+			name="listener"
+			type="listener.py"/>
+  	</group>
+	-->	
+
+</launch>

@@ -2,7 +2,6 @@
 
 SRC=/home/wasp/catkin_ws/
 DRONE_WIFI="WaspGroup6"
-TEAM_WIFI="WASP_6"
 
 echo "Sourcing stuff"
 source "$SRC/devel/setup.bash"
@@ -22,11 +21,10 @@ echo "./data/wifi.sh" | telnet 192.168.1.1
 echo "Changing the drone Wifi DONE"
 
 #
-# iSwitch to the team Wifi
+# Switch to the control room Network
 #
-echo "Connect to team wifi"
-nmcli c up id $TEAM_WIFI
-echo "Connect to team wifi DONE"
+echo "Please connect the control room cable"
+read -p "Press any key when connected to continue... " -n1 -s
 
 #
 # Roscore

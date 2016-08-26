@@ -46,8 +46,8 @@ rgb_threshold = {
         ],
         'green' : [
                 {
-                        'low' : np.array([64,76,70]),
-	                'high' : np.array([112,148,111]),
+                        'low' : np.array([55,67,25]),
+	                'high' : np.array([98,255,165]),
                 }
         ],
         'red' : [
@@ -57,8 +57,8 @@ rgb_threshold = {
                 },
                 # Hard to get calibration
                 {
-                        'low' : np.array([140,36,90]),
-                        'high' : np.array([255,230,200]),
+                        'low' : np.array([154,50,90]),
+                        'high' : np.array([255,255,255]),
                 }
         ],
 }
@@ -87,6 +87,17 @@ STAR_CONTOUR_SHAPE = np.array([[[450,  18]],
                                [[460,  64]],
                                [[491,  57]],
                                [[461,  49]]])
+
+CONTOUR_SHAPE_TRIANGLE =  np.array([[[406,  46]],
+                                    [[376, 111]],
+                                    [[443, 112]]])
+
+CONTOUR_SHAPE_SQAURE = np.array([[[376, 122]],
+                                 [[378, 187]],
+                                 [[446, 186]],
+                                 [[444, 124]]])
+
+
 
 def threshold_image(hsv, data):
         '''
@@ -160,9 +171,9 @@ class ContourDetection:
                 '''
                 # Four sides
                 (size, temp, temp2) = contour.shape
-                if size == 4:
+                if cv2.matchShapes(contour,CONTOUR_SHAPE_SQAURE,1,0.0) < 0.1:
                         return 'SQUARE'
-                elif size == 3:
+                elif cv2.matchShapes(contour,CONTOUR_SHAPE_TRIANGLE,1,0.0) < 0.1:
                         return 'TRIANGLE'
                 elif cv2.matchShapes(contour,CIRCLE_CONTOUR_SHAPE,1,0.0) < 0.1:
                         return 'CIRCLE'

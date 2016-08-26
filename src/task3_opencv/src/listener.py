@@ -8,9 +8,9 @@ def callback(data):
     global ids
 
     if str(data.ID) not in ids:
-        rospy.loginfo("Callback had: %s", ids.keys())
         rospy.loginfo("Callback adds: %s", str(data.ID))
         ids[str(data.ID)] = data
+        rospy.loginfo("Callback has: %s", ids.values())
 
 def listener():
     # In ROS, nodes are uniquely named. If two nodes with the same

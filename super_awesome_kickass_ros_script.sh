@@ -24,7 +24,6 @@ echo "Changing the drone Wifi DONE"
 # Switch to the control room Network
 #
 echo "Please connect the control room cable"
-nmcli c up id $TEAM_WIFI
 read -p "Press any key when connected to continue... " -n1 -s
 
 #
